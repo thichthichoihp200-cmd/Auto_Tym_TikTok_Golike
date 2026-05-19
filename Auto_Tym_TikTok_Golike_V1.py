@@ -5,6 +5,7 @@ warnings.filterwarnings("ignore")
 
 # Cấu hình file
 CONFIG_FILE = "config_run.json"
+ACCOUNTS_FILE = "accounts.json" # Thêm file quản lý danh sách
 API_BASE = "https://gateway.golike.net/api"
 
 # Màu sắc chuyên dụng cho Termux
@@ -75,7 +76,6 @@ def hien_thi_banner():
     print(banner)
 
 def draw_thread_box(thread_idx, name, job_type, status, countdown, done, maxj, xu, total_xu):
-    # Giữ cố định ở dòng 14 giúp giao diện cực kỳ thoáng và không bao giờ bị lỗi nhảy chữ
     line_pos = 14 + (thread_idx * 2)
     with print_lock:
         sys.stdout.write(f"\033[{line_pos};1H\033[K")
@@ -168,12 +168,25 @@ def main():
     global account_pool
     hien_thi_banner()
 
-    if os.path.exists("Authorization.txt"):
-        a = open("Authorization.txt").read().strip()
-        t = open("token.txt").read().strip()
+    # Quản lý tài khoản cũ/mới
+    if os.path.exists(ACCOUNTS_FILE):
+        with open(ACCOUNTS_FILE, "r") as f: accounts = json.load(f)
+    else: accounts = []
+
+    if accounts:
+        print(f"{Y}DANH SÁCH TÀI KHOẢN ĐÃ LƯU:{X}")
+        for i, acc in enumerate(accounts):
+            print(f"{G}{i+1}.{X} Auth: {acc['a'][:10]}... | Token: {acc['t'][:10]}...")
+        chon = input(f"{W}Chọn số tài khoản hoặc nhấn Enter để nhập mới: {X}")
+        if chon.isdigit() and int(chon) <= len(accounts):
+            a, t = accounts[int(chon)-1]['a'], accounts[int(chon)-1]['t']
+        else:
+            a = input(f"{W}Nhập Authorization mới: {X}"); t = input(f"{W}Nhập Token mới: {X}")
+            accounts.append({"a": a, "t": t})
+            with open(ACCOUNTS_FILE, "w") as f: json.dump(accounts, f)
     else:
         a = input(f"{W}Authorization: {X}"); t = input(f"{W}Token: {X}")
-        open("Authorization.txt","w").write(a); open("token.txt","w").write(t)
+        with open(ACCOUNTS_FILE, "w") as f: json.dump([{"a": a, "t": t}], f)
 
     h = {"Authorization": a, "t": t}
     res = rq("GET", f"{API_BASE}/tiktok-account", headers=h)

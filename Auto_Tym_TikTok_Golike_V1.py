@@ -165,27 +165,37 @@ def main():
     global account_pool
     hien_thi_banner()
 
+    # Sửa lỗi đọc file JSON an toàn
     if os.path.exists(ACCOUNTS_FILE):
-        with open(ACCOUNTS_FILE, "r") as f: accounts = json.load(f)
-    else: accounts = []
+        try:
+            with open(ACCOUNTS_FILE, "r") as f: 
+                accounts = json.load(f)
+        except: 
+            accounts = [] # Nếu file lỗi thì tạo mới
+    else: 
+        accounts = []
 
     if accounts:
         print(f"{Y}DANH SÁCH TÀI KHOẢN ĐÃ LƯU:{X}")
         for i, acc in enumerate(accounts):
-            print(f"{G}{i+1}.{X} {acc['name']}")
-        chon = input(f"{W}Chọn số tài khoản hoặc nhấn Enter để nhập mới: {X}")
+            # Dùng .get() để tránh lỗi nếu thiếu khóa 'name'
+            print(f"{G}{i+1}.{X} {acc.get('name', 'Tài khoản ' + str(i+1))}")
+        
+        chon = input(f"{W}Chọn số tài khoản (hoặc Enter để nhập mới): {X}")
         if chon.isdigit() and int(chon) <= len(accounts):
-            a, t = accounts[int(chon)-1]['a'], accounts[int(chon)-1]['t']
+            selected = accounts[int(chon)-1]
+            a, t = selected['a'], selected['t']
         else:
-            a = input(f"{W}Authorization: {X}"); t = input(f"{W}Token: {X}")
+            a = input(f"{W}Nhập Authorization mới: {X}"); t = input(f"{W}Nhập Token mới: {X}")
             name = get_user_info({"Authorization": a, "t": t})
             accounts.append({"name": name, "a": a, "t": t})
-            with open(ACCOUNTS_FILE, "w") as f: json.dump(accounts, f)
+            with open(ACCOUNTS_FILE, "w") as f: json.dump(accounts, f, indent=4)
     else:
         a = input(f"{W}Authorization: {X}"); t = input(f"{W}Token: {X}")
         name = get_user_info({"Authorization": a, "t": t})
         accounts.append({"name": name, "a": a, "t": t})
-        with open(ACCOUNTS_FILE, "w") as f: json.dump(accounts, f)
+        with open(ACCOUNTS_FILE, "w") as f: json.dump(accounts, f, indent=4)
+
 
     h = {"Authorization": a, "t": t}
     res = rq("GET", f"{API_BASE}/tiktok-account", headers=h)

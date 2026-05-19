@@ -5,7 +5,7 @@ warnings.filterwarnings("ignore")
 
 # Cấu hình file
 CONFIG_FILE = "config_run.json"
-ACCOUNTS_FILE = "accounts.json" # Thêm file quản lý danh sách
+ACCOUNTS_FILE = "accounts.json"
 API_BASE = "https://gateway.golike.net/api"
 
 # Màu sắc chuyên dụng cho Termux
@@ -59,6 +59,12 @@ def rq(m, u, headers, **k):
         time.sleep(2)
     return None
 
+def get_user_info(h):
+    res = rq("GET", f"{API_BASE}/user", headers=h)
+    if res and res.get("status") == 200:
+        return res.get("data", {}).get("name", "Người dùng")
+    return "Tài khoản"
+
 def hien_thi_banner():
     os.system('clear')
     banner = f"""
@@ -87,12 +93,10 @@ def draw_thread_box(thread_idx, name, job_type, status, countdown, done, maxj, x
 def worker(thread_idx, config, h):
     global account_pool
     total_luong_xu = 0
-    
     while True:
         acc_data = None
         with pool_lock:
             if account_pool: acc_data = account_pool.pop(0)
-        
         if not acc_data:
             lbl_wait_job = f"{Y}WAIT{X}"
             lbl_wait_status = f"{R}Đang đợi acc...{X}"
@@ -104,12 +108,10 @@ def worker(thread_idx, config, h):
         job_filter = ["follow", "like"] if config['choice'] == "3" else ["follow"] if config['choice'] == "1" else ["like"]
         done_acc = 0
         fail_count = 0
-        
         start_scan_time = time.time()
 
         while done_acc < config['maxj']:
             elapsed_time = int(time.time() - start_scan_time)
-            
             if elapsed_time >= 300:
                 lbl_tout = f"{R}T.OUT{X}"
                 for i in range(10, 0, -1):
@@ -123,10 +125,8 @@ def worker(thread_idx, config, h):
             draw_thread_box(thread_idx, name, lbl_scan, status_scan, "--", done_acc, config['maxj'], 0, total_luong_xu)
             
             job = rq("GET", f"{API_BASE}/advertising/publishers/tiktok/jobs", h, params={"account_id": acc_id})
-            
             if not job or not job.get("data") or job.get("data") == []:
-                time.sleep(3)
-                continue
+                time.sleep(3); continue
 
             d = job["data"]
             raw_type = d.get("type", "").lower()
@@ -135,7 +135,6 @@ def worker(thread_idx, config, h):
                 continue
 
             start_scan_time = time.time()
-
             lbl_job = f"{G}{raw_type.upper()[:4]}{X}"
             delay = random.randint(config['dmin'], config['dmax'])
             for i in range(delay, 0, -1):
@@ -159,16 +158,13 @@ def worker(thread_idx, config, h):
                 fail_count += 1
                 rq("POST", f"{API_BASE}/advertising/publishers/tiktok/skip-jobs", h, json={"ads_id": d.get("id"), "account_id": acc_id, "type": raw_type})
                 if fail_count >= config['max_fail']: break
-        
-        with pool_lock:
-            account_pool.append(acc_data)
+        with pool_lock: account_pool.append(acc_data)
         time.sleep(2)
 
 def main():
     global account_pool
     hien_thi_banner()
 
-    # Quản lý tài khoản cũ/mới
     if os.path.exists(ACCOUNTS_FILE):
         with open(ACCOUNTS_FILE, "r") as f: accounts = json.load(f)
     else: accounts = []
@@ -176,17 +172,20 @@ def main():
     if accounts:
         print(f"{Y}DANH SÁCH TÀI KHOẢN ĐÃ LƯU:{X}")
         for i, acc in enumerate(accounts):
-            print(f"{G}{i+1}.{X} Auth: {acc['a'][:10]}... | Token: {acc['t'][:10]}...")
+            print(f"{G}{i+1}.{X} {acc['name']}")
         chon = input(f"{W}Chọn số tài khoản hoặc nhấn Enter để nhập mới: {X}")
         if chon.isdigit() and int(chon) <= len(accounts):
             a, t = accounts[int(chon)-1]['a'], accounts[int(chon)-1]['t']
         else:
-            a = input(f"{W}Nhập Authorization mới: {X}"); t = input(f"{W}Nhập Token mới: {X}")
-            accounts.append({"a": a, "t": t})
+            a = input(f"{W}Authorization: {X}"); t = input(f"{W}Token: {X}")
+            name = get_user_info({"Authorization": a, "t": t})
+            accounts.append({"name": name, "a": a, "t": t})
             with open(ACCOUNTS_FILE, "w") as f: json.dump(accounts, f)
     else:
         a = input(f"{W}Authorization: {X}"); t = input(f"{W}Token: {X}")
-        with open(ACCOUNTS_FILE, "w") as f: json.dump([{"a": a, "t": t}], f)
+        name = get_user_info({"Authorization": a, "t": t})
+        accounts.append({"name": name, "a": a, "t": t})
+        with open(ACCOUNTS_FILE, "w") as f: json.dump(accounts, f)
 
     h = {"Authorization": a, "t": t}
     res = rq("GET", f"{API_BASE}/tiktok-account", headers=h)

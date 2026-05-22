@@ -112,15 +112,15 @@ def worker(thread_idx, config, h):
 
         while done_acc < config['maxj']:
             elapsed_time = int(time.time() - start_scan_time)
-            if elapsed_time >= 1800:
+            if elapsed_time >= 900:
                 lbl_tout = f"{R}T.OUT{X}"
                 for i in range(10, 0, -1):
-                    status_tout = f"{R}QUÁ 30 PHÚT -> ĐỔI {i}S{X}"
+                    status_tout = f"{R}QUÁ 15 PHÚT -> ĐỔI {i}S{X}"
                     draw_thread_box(thread_idx, name, lbl_tout, status_tout, str(i), done_acc, config['maxj'], 0, total_luong_xu)
                     time.sleep(1)
                 break
 
-            lbl_scan = f"{Y}Q.{elapsed_time}s{X}"
+            lbl_scan = f"{Y}Đang Quét.{elapsed_time}s{X}"
             status_scan = f"{C}Tìm job...{X}"
             draw_thread_box(thread_idx, name, lbl_scan, status_scan, "--", done_acc, config['maxj'], 0, total_luong_xu)
             

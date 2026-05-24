@@ -75,7 +75,7 @@ def hien_thi_banner():
 {G}/_/ /___//_/ |_//_/ /_/                {G}    ` - . - `  ☠  {X}
 {Y}───────────────────────────────────────────────────────────────────────────{X}
 {G} ▶ Tác giả:   {W}TINH89 {X}
-{G} ▶ Phiên bản: {W}V1.9 Pocket Color Pro {X}
+{G} ▶ Phiên bản: {W}V.2026 {X}
 {G} ▶ Thời gian: {W}{get_vn_time()}{X}
 {Y}───────────────────────────────────────────────────────────────────────────{X}
 """
@@ -112,10 +112,10 @@ def worker(thread_idx, config, h):
 
         while done_acc < config['maxj']:
             elapsed_time = int(time.time() - start_scan_time)
-            if elapsed_time >= 900:
+            if elapsed_time >= 300:
                 lbl_tout = f"{R}T.OUT{X}"
                 for i in range(10, 0, -1):
-                    status_tout = f"{R}QUÁ 15 PHÚT -> ĐỔI {i}S{X}"
+                    status_tout = f"{R}QUÁ 5 PHÚT -> ĐỔI {i}S{X}"
                     draw_thread_box(thread_idx, name, lbl_tout, status_tout, str(i), done_acc, config['maxj'], 0, total_luong_xu)
                     time.sleep(1)
                 break

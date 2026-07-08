@@ -112,10 +112,10 @@ def worker(thread_idx, config, h):
 
         while done_acc < config['maxj']:
             elapsed_time = int(time.time() - start_scan_time)
-            if elapsed_time >= 300:
+            if elapsed_time >= 60:
                 lbl_tout = f"{R}T.OUT{X}"
                 for i in range(10, 0, -1):
-                    status_tout = f"{R}QUÁ 5 PHÚT -> ĐỔI {i}S{X}"
+                    status_tout = f"{R}QUÁ 1 PHÚT -> ĐỔI {i}S{X}"
                     draw_thread_box(thread_idx, name, lbl_tout, status_tout, str(i), done_acc, config['maxj'], 0, total_luong_xu)
                     time.sleep(1)
                 break

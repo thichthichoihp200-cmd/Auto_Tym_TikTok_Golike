@@ -6,6 +6,7 @@ warnings.filterwarnings("ignore")
 # Cấu hình file
 CONFIG_FILE = "config_run.json"
 ACCOUNTS_FILE = "accounts.json"
+SIG_FILE = "config_sig.json" # File mới lưu SIG
 API_BASE = "https://gateway.golike.net/api"
 
 # Màu sắc chuyên dụng cho Termux
@@ -35,6 +36,14 @@ print_lock = threading.Lock()
 account_pool = []
 pool_lock = threading.Lock()
 
+# Hàm mới để quản lý SIG
+def load_sig():
+    if os.path.exists(SIG_FILE):
+        with open(SIG_FILE, "r") as f: return json.load(f).get("sig")
+    sig = input(f"{W}Nhập SIG: {X}")
+    with open(SIG_FILE, "w") as f: json.dump({"sig": sig}, f)
+    return sig
+
 def save_run_config(config):
     with open(CONFIG_FILE, "w") as f: json.dump(config, f)
 
@@ -49,6 +58,7 @@ def get_vn_time():
 def rq(m, u, headers, **k):
     local_session = requests.Session()
     headers["User-Agent"] = random.choice(U_AGENTS)
+    headers["sig"] = load_sig() # Bổ sung SIG vào header
     for _ in range(3):
         try:
             r = local_session.request(m, u, headers=headers, timeout=15, **k)
@@ -98,9 +108,7 @@ def worker(thread_idx, config, h):
         with pool_lock:
             if account_pool: acc_data = account_pool.pop(0)
         if not acc_data:
-            lbl_wait_job = f"{Y}WAIT{X}"
-            lbl_wait_status = f"{R}Đang đợi acc...{X}"
-            draw_thread_box(thread_idx, "HẾT ACC", lbl_wait_job, lbl_wait_status, "0", 0, 0, 0, total_luong_xu)
+            draw_thread_box(thread_idx, "HẾT ACC", f"{Y}WAIT{X}", f"{R}Đang đợi acc...{X}", "0", 0, 0, 0, total_luong_xu)
             time.sleep(5); continue
 
         acc_id = str(acc_data['id'])
@@ -120,10 +128,6 @@ def worker(thread_idx, config, h):
                     time.sleep(1)
                 break
 
-            lbl_scan = f"{Y}Đang Quét.{elapsed_time}s{X}"
-            status_scan = f"{C}Tìm job...{X}"
-            draw_thread_box(thread_idx, name, lbl_scan, status_scan, "--", done_acc, config['maxj'], 0, total_luong_xu)
-            
             job = rq("GET", f"{API_BASE}/advertising/publishers/tiktok/jobs", h, params={"account_id": acc_id})
             if not job or not job.get("data") or job.get("data") == []:
                 time.sleep(3); continue
@@ -138,21 +142,15 @@ def worker(thread_idx, config, h):
             lbl_job = f"{G}{raw_type.upper()[:4]}{X}"
             delay = random.randint(config['dmin'], config['dmax'])
             for i in range(delay, 0, -1):
-                status_run = f"{P}Làm job...{X}"
-                draw_thread_box(thread_idx, name, lbl_job, status_run, str(i), done_acc, config['maxj'], 0, total_luong_xu)
+                draw_thread_box(thread_idx, name, lbl_job, f"{P}Làm job...{X}", str(i), done_acc, config['maxj'], 0, total_luong_xu)
                 time.sleep(1)
 
-            status_get = f"{Y}Nhận xu...{X}"
-            draw_thread_box(thread_idx, name, lbl_job, status_get, "0", done_acc, config['maxj'], 0, total_luong_xu)
             res = rq("POST", f"{API_BASE}/advertising/publishers/tiktok/complete-jobs", h, json={"ads_id": d["id"], "account_id": acc_id})
-            
             if res and res.get("status") == 200:
                 xu_nhan = res.get("data", {}).get("prices", 0)
-                if xu_nhan == 0:
-                    status_text = f"{R}Lỗi 0 xu{X}"; fail_count += 1
-                else:
-                    status_text = f"{G}Thành công{X}"; total_luong_xu += xu_nhan; done_acc += 1; fail_count = 0
-                draw_thread_box(thread_idx, name, lbl_job, status_text, "OK", done_acc, config['maxj'], xu_nhan, total_luong_xu)
+                if xu_nhan > 0:
+                    total_luong_xu += xu_nhan; done_acc += 1
+                draw_thread_box(thread_idx, name, lbl_job, f"{G}Thành công{X}", "OK", done_acc, config['maxj'], xu_nhan, total_luong_xu)
                 time.sleep(2)
             else:
                 fail_count += 1
@@ -163,22 +161,19 @@ def worker(thread_idx, config, h):
 
 def main():
     global account_pool
+    # Gọi load_sig lần đầu để bắt buộc nhập trước khi vào game
+    load_sig()
     hien_thi_banner()
 
-    # Sửa lỗi đọc file JSON an toàn
     if os.path.exists(ACCOUNTS_FILE):
         try:
-            with open(ACCOUNTS_FILE, "r") as f: 
-                accounts = json.load(f)
-        except: 
-            accounts = [] # Nếu file lỗi thì tạo mới
-    else: 
-        accounts = []
+            with open(ACCOUNTS_FILE, "r") as f: accounts = json.load(f)
+        except: accounts = []
+    else: accounts = []
 
     if accounts:
         print(f"{Y}DANH SÁCH TÀI KHOẢN ĐÃ LƯU:{X}")
         for i, acc in enumerate(accounts):
-            # Dùng .get() để tránh lỗi nếu thiếu khóa 'name'
             print(f"{G}{i+1}.{X} {acc.get('name', 'Tài khoản ' + str(i+1))}")
         
         chon = input(f"{W}Chọn số tài khoản (hoặc Enter để nhập mới): {X}")
@@ -195,7 +190,6 @@ def main():
         name = get_user_info({"Authorization": a, "t": t})
         accounts.append({"name": name, "a": a, "t": t})
         with open(ACCOUNTS_FILE, "w") as f: json.dump(accounts, f, indent=4)
-
 
     h = {"Authorization": a, "t": t}
     res = rq("GET", f"{API_BASE}/tiktok-account", headers=h)
